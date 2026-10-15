@@ -110,4 +110,11 @@ public class PIDSettings {
     public void setWaitTime(Supplier<Double> waitTime) {
         this.waitTime = waitTime;
     }
+
+    public static PIDController buildControllerFromSetting(PIDSettings settings) {
+        PIDController controller = new PIDController(settings.getkP(), settings.getkI(), settings.getkD());
+        controller.setIZone(settings.getIZone());
+        controller.setTolerance(settings.getTolerance());
+        return controller;
+    }
 }
