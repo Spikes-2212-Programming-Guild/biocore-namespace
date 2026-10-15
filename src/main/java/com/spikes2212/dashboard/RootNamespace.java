@@ -1,179 +1,158 @@
 package com.spikes2212.dashboard;
 
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableEntry;
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.networktables.NetworkTableValue;
+import com.spikes2212.command.drivetrains.swerve.SwerveDrivetrain;
+import com.spikes2212.control.FFController;
+import com.spikes2212.control.FFSettings;
+import com.spikes2212.control.PIDSettings;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.networktables.*;
 import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.util.sendable.SendableRegistry;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilderImpl;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * This class represents a "root directory" in the namespace where other {@link ChildNamespace} and values can be saved.
- */
 public class RootNamespace implements Namespace {
 
-    protected final Map<String, Supplier<String>> stringFields;
-    protected final Map<String, Supplier<? extends Number>> numberFields;
-    protected final Map<String, Supplier<Boolean>> booleanFields;
     protected final NetworkTable table;
     protected final String name;
 
-    private final Map<String, Sendable> tablesToData;
+    private final List<PublishedField<?>> publishedFields = new ArrayList<>();
+    private final HashMap<String, Sendable> sendableTable = new HashMap<>();
 
     public RootNamespace(String name) {
         this.name = name;
-        NetworkTableInstance inst = NetworkTableInstance.getDefault();
-        this.table = inst.getTable(this.name);
-        stringFields = new HashMap<>();
-        numberFields = new HashMap<>();
-        booleanFields = new HashMap<>();
-        tablesToData = new HashMap<>();
+        this.table = NetworkTableInstance.getDefault().getTable(this.name);
     }
 
     @Override
-    public Supplier<Double> addConstantDouble(String name, double value) {
-        NetworkTableEntry entry = table.getEntry(name);
-        if (!table.containsKey(name)) {
-            entry.setDouble(value);
-            entry.setPersistent();
-        }
-        return () -> entry.getDouble(value);
+    public Supplier<Double> addTunableDouble(String key, double defaultValue) {
+        DoubleEntry entry = table.getDoubleTopic(key).getEntry(defaultValue);
+        entry.setDefault(defaultValue);
+        return entry::get;
     }
 
     @Override
-    public Supplier<Integer> addConstantInt(String name, int value) {
-        NetworkTableEntry entry = table.getEntry(name);
-        if (!table.containsKey(name)) {
-            entry.setNumber(value);
-            entry.setPersistent();
-        }
-        return () -> entry.getNumber(value).intValue();
+    public Supplier<Boolean> addTunableBoolean(String key, boolean defaultValue) {
+        BooleanEntry entry = table.getBooleanTopic(key).getEntry(defaultValue);
+        entry.setDefault(defaultValue);
+        return entry::get;
     }
 
     @Override
-    public Supplier<String> addConstantString(String name, String value) {
-        NetworkTableEntry entry = table.getEntry(name);
-        if (!table.containsKey(name)) {
-            entry.setString(value);
-            entry.setPersistent();
-        }
-        return () -> entry.getString(value);
+    public Supplier<Long> addTunableInteger(String key, long defaultValue) {
+        IntegerEntry entry = table.getIntegerTopic(key).getEntry(defaultValue);
+        entry.setDefault(defaultValue);
+        return entry::get;
     }
 
     @Override
-    public ChildNamespace addChild(String name) {
-        return new ChildNamespace(name, this);
+    public Supplier<String> addTunableString(String key, String defaultValue) {
+        StringEntry entry = table.getStringTopic(key).getEntry(defaultValue);
+        entry.setDefault(defaultValue);
+        return entry;
     }
 
     @Override
-    public void putData(String key, Sendable value) {
-        Sendable sddata = tablesToData.get(key);
-        if (sddata == null || sddata != value) {
-            tablesToData.put(key, value);
-            NetworkTable dataTable = table.getSubTable(key);
-            SendableBuilderImpl builder = new SendableBuilderImpl();
-            builder.setTable(dataTable);
-            SendableRegistry.publish(value, builder);
-            builder.startListeners();
-            dataTable.getEntry(".name").setString(key);
-        }
+    public void publishDouble(String key, Supplier<Double> value) {
+        DoublePublisher publisher = table.getDoubleTopic(key).publish();
+        publish(value, publisher::set);
+    }
+
+    @Override
+    public void publishBoolean(String key, Supplier<Boolean> value) {
+        BooleanPublisher publisher = table.getBooleanTopic(key).publish();
+        publish(value, publisher::set);
+    }
+
+    @Override
+    public void publishInteger(String key, Supplier<Long> value) {
+        IntegerPublisher publisher = table.getIntegerTopic(key).publish();
+        publish(value, publisher::set);
+    }
+
+    @Override
+    public void publishString(String key, Supplier<String> value) {
+        StringPublisher publisher = table.getStringTopic(key).publish();
+        publish(value, publisher::set);
+    }
+
+    @Override
+    public void publishSendable(String key, Sendable sendable) {
+        sendableTable.put(key, sendable);
+        NetworkTable dataTable = table.getSubTable(key);
+        SendableBuilderImpl builder = new SendableBuilderImpl();
+        builder.setTable(dataTable);
+        SendableRegistry.publish(sendable, builder);
+        builder.startListeners();
+        dataTable.getEntry(".name").setString(key);
+    }
+
+    @Override
+    public void publishCommand(String key, Command command) {
+        publishSendable(key, command);
+    }
+
+    @Override
+    public void publishRunnable(String key, Runnable runnable) {
+        publishCommand(key, new InstantCommand(runnable));
+    }
+
+    public void publishDifferentialDrive(String key, DifferentialDrive differentialDrive) {
+        publishSendable(key, differentialDrive);
+    }
+
+    public void publishSwerveDrive(String key, SwerveDrivetrain drivetrain) {
+        publishSendable(key, drivetrain);
+    }
+
+    public PIDController addPIDController(String key, PIDSettings initialSettings) {
+        PIDController controller = PIDSettings.buildControllerFromSetting(initialSettings);
+        publishSendable(key, controller);
+        return controller;
+    }
+
+    public FFController addFFController(String key, FFSettings initialSettings) {
+        FFController controller = new FFController(initialSettings);
+        publishSendable(key, controller);
+        return controller;
+    }
+
+    public void publishCommandScheduler(String key) {
+        publishSendable(key, CommandScheduler.getInstance());
+    }
+
+    public void publishRobotFieldPose(String key, Field2d robotFieldPose) {
+        publishSendable(key, robotFieldPose);
     }
 
     @Override
     public Sendable getSendable(String key) {
-        NetworkTableEntry entry = this.table.getEntry(key);
-        NetworkTableValue value = entry.getValue();
-        return (Sendable) value.getValue();
+        return sendableTable.get(key);
     }
 
-    @Override
-    public void putString(String key, Supplier<String> value) {
-        remove(key);
-        NetworkTableEntry entry = this.table.getEntry(key);
-        entry.setString(value.get());
-        stringFields.put(key, value);
-    }
-
-    @Override
-    public String getString(String key) {
-        NetworkTableEntry entry = this.table.getEntry(key);
-        NetworkTableValue value = entry.getValue();
-        return value.getString();
-    }
-
-    @Override
-    public void putNumber(String key, Supplier<? extends Number> value) {
-        remove(key);
-        NetworkTableEntry entry = this.table.getEntry(key);
-        entry.setNumber(value.get());
-        numberFields.put(key, value);
-    }
-
-    @Override
-    public double getNumber(String key) {
-        NetworkTableEntry entry = this.table.getEntry(key);
-        NetworkTableValue value = entry.getValue();
-        return value.getDouble();
-    }
-
-    @Override
-    public void putBoolean(String key, Supplier<Boolean> value) {
-        remove(key);
-        NetworkTableEntry entry = this.table.getEntry(key);
-        entry.setBoolean(value.get());
-        booleanFields.put(key, value);
-    }
-
-    @Override
-    public boolean getBoolean(String key) {
-        NetworkTableEntry entry = this.table.getEntry(key);
-        NetworkTableValue value = entry.getValue();
-        return value.getBoolean();
-    }
-
-    public void remove(String name) {
-        stringFields.remove(name);
-        numberFields.remove(name);
-        booleanFields.remove(name);
+    private <T> void publish(Supplier<T> valueSupplier, Consumer<T> valuePublisher) {
+        PublishedField<T> publishedField = new PublishedField<>(valueSupplier, valuePublisher);
+        publishedFields.add(publishedField);
     }
 
     @Override
     public void update() {
-        updateBoolean();
-        updateNumber();
-        updateString();
-        updateSendable();
-    }
-
-    private void updateString() {
-        for (Map.Entry<String, Supplier<String>> map : stringFields.entrySet()) {
-            NetworkTableEntry entry = this.table.getEntry(map.getKey());
-            entry.setString(map.getValue().get());
+        for (PublishedField<?> value : publishedFields) {
+            value.update();
         }
-    }
-
-    private void updateNumber() {
-        for (Map.Entry<String, Supplier<? extends Number>> map : numberFields.entrySet()) {
-            NetworkTableEntry entry = this.table.getEntry(map.getKey());
-            entry.setNumber(map.getValue().get());
-        }
-    }
-
-    private void updateBoolean() {
-        for (Map.Entry<String, Supplier<Boolean>> map : booleanFields.entrySet()) {
-            NetworkTableEntry entry = this.table.getEntry(map.getKey());
-            entry.setBoolean(map.getValue().get());
-        }
-    }
-
-    private void updateSendable() {
-        for (Sendable data : tablesToData.values()) {
+        for (Sendable data : sendableTable.values()) {
             SendableRegistry.update(data);
         }
     }
 }
+

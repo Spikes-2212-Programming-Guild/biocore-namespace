@@ -1,7 +1,7 @@
 package com.spikes2212.command.drivetrains.swerve;
 
 import com.spikes2212.command.DashboardedSubsystem;
-import com.spikes2212.control.FeedForwardSettings;
+import com.spikes2212.control.FFSettings;
 import com.spikes2212.control.PIDSettings;
 import com.spikes2212.util.UnifiedControlMode;
 import com.spikes2212.util.smartmotorcontrollers.SmartMotorController;
@@ -32,8 +32,8 @@ public abstract class SwerveModule extends DashboardedSubsystem {
 
     protected final PIDSettings driveMotorPIDSettings;
     protected final PIDSettings turnMotorPIDSettings;
-    protected final FeedForwardSettings driveMotorFeedForwardSettings;
-    protected final FeedForwardSettings turnMotorFeedForwardSettings;
+    protected final FFSettings driveMotorFFSettings;
+    protected final FFSettings turnMotorFFSettings;
 
 
     /**
@@ -47,15 +47,15 @@ public abstract class SwerveModule extends DashboardedSubsystem {
      * @param absoluteEncoderOffset         absolute encoder offset while wheel is parallel to the track
      * @param driveMotorPIDSettings         the drive motor pid settings
      * @param turnMotorPIDSettings          the turn motor pid settings
-     * @param driveMotorFeedForwardSettings the drive motor feed forward settings
-     * @param turnMotorFeedForwardSettings  the turn motor feed forward settings
+     * @param driveMotorFFSettings the drive motor feed forward settings
+     * @param turnMotorFFSettings  the turn motor feed forward settings
      * @param minSpeedLimit                    a speed limit intended for dealing with stick drift
      */
     public SwerveModule(String namespaceName, SmartMotorController driveMotor, SmartMotorController turnMotor,
                         boolean driveMotorInverted, boolean turnMotorInverted, double absoluteEncoderOffset,
                         PIDSettings driveMotorPIDSettings, PIDSettings turnMotorPIDSettings,
-                        FeedForwardSettings driveMotorFeedForwardSettings,
-                        FeedForwardSettings turnMotorFeedForwardSettings, double minSpeedLimit) {
+                        FFSettings driveMotorFFSettings,
+                        FFSettings turnMotorFFSettings, double minSpeedLimit) {
         super(namespaceName);
         this.driveMotor = driveMotor;
         this.turnMotor = turnMotor;
@@ -64,14 +64,12 @@ public abstract class SwerveModule extends DashboardedSubsystem {
         this.absoluteEncoderOffset = absoluteEncoderOffset;
         this.driveMotorPIDSettings = driveMotorPIDSettings;
         this.turnMotorPIDSettings = turnMotorPIDSettings;
-        this.driveMotorFeedForwardSettings = driveMotorFeedForwardSettings;
-        this.turnMotorFeedForwardSettings = turnMotorFeedForwardSettings;
+        this.driveMotorFFSettings = driveMotorFFSettings;
+        this.turnMotorFFSettings = turnMotorFFSettings;
         this.minSpeedLimit = minSpeedLimit;
-//        driveMotor.setInverted(driveMotorInverted);
-//        turnMotor.setInverted(!turnMotorInverted);
-//        configureTurnController();
-//        configureDriveController();
-//        configureAbsoluteEncoder();
+        configureTurnController();
+        configureDriveController();
+        configureAbsoluteEncoder();
     }
 
     /**
@@ -150,7 +148,7 @@ public abstract class SwerveModule extends DashboardedSubsystem {
      */
     public void setTargetAngle(Rotation2d targetAngle) {
         turnMotor.pidSet(UnifiedControlMode.POSITION, targetAngle.getDegrees(), turnMotorPIDSettings,
-                turnMotorFeedForwardSettings, true);
+                turnMotorFFSettings, true);
     }
 
     /**
@@ -163,7 +161,7 @@ public abstract class SwerveModule extends DashboardedSubsystem {
     public void setTargetVelocity(double targetVelocity, double maxPossibleVelocity, boolean useVelocityPID) {
         if (useVelocityPID) {
             driveMotor.pidSet(UnifiedControlMode.VELOCITY, targetVelocity, driveMotorPIDSettings,
-                    driveMotorFeedForwardSettings, true);
+                    driveMotorFFSettings, true);
         } else {
             driveMotor.set(targetVelocity / maxPossibleVelocity);
         }
@@ -212,17 +210,17 @@ public abstract class SwerveModule extends DashboardedSubsystem {
     }
 
     /**
-     * @return the drive motors {@link FeedForwardSettings}
+     * @return the drive motors {@link FFSettings}
      */
-    public FeedForwardSettings getDriveMotorFeedForwardSettings() {
-        return driveMotorFeedForwardSettings;
+    public FFSettings getDriveMotorFeedForwardSettings() {
+        return driveMotorFFSettings;
     }
 
     /**
-     * @return the turn motors {@link FeedForwardSettings}
+     * @return the turn motors {@link FFSettings}
      */
-    public FeedForwardSettings getTurnMotorFeedForwardSettings() {
-        return turnMotorFeedForwardSettings;
+    public FFSettings getTurnMotorFeedForwardSettings() {
+        return turnMotorFFSettings;
     }
 
     /**

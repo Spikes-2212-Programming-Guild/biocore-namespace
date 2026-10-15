@@ -1,5 +1,7 @@
 package com.spikes2212.control;
 
+import edu.wpi.first.math.controller.PIDController;
+
 import java.util.function.Supplier;
 
 /**

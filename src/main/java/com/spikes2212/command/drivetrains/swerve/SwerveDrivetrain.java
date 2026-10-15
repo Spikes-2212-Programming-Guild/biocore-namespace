@@ -7,6 +7,9 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.util.sendable.SendableBuilder;
+import edu.wpi.first.util.sendable.SendableRegistry;
 
 /**
  * Represents a swerve drivetrain that uses vector calculations to combine the robot’s desired translation
@@ -15,7 +18,7 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
  * @author Gil Ein-Gar
  * @see DashboardedSubsystem
  */
-public abstract class SwerveDrivetrain extends DashboardedSubsystem {
+public abstract class SwerveDrivetrain extends DashboardedSubsystem implements Sendable, AutoCloseable {
 
     private static final String DEFAULT_NAMESPACE_NAME = "drivetrain";
 
@@ -265,5 +268,37 @@ public abstract class SwerveDrivetrain extends DashboardedSubsystem {
         frontRightModule.stop();
         backLeftModule.stop();
         backRightModule.stop();
+    }
+
+    @Override
+    public void close() {
+        SendableRegistry.remove(this);
+    }
+
+    @Override
+    public void initSendable(SendableBuilder builder) {
+        builder.setSmartDashboardType("SwerveDrive");
+        builder.addDoubleProperty("Front Left Angle",
+                () -> frontLeftModule.getModuleState().angle.getRadians(), null);
+        builder.addDoubleProperty("Front Left Velocity",
+                () -> frontLeftModule.getModuleState().speedMetersPerSecond, null);
+
+        builder.addDoubleProperty("Front Right Angle",
+                () -> frontRightModule.getModuleState().angle.getRadians(), null);
+        builder.addDoubleProperty("Front Right Velocity",
+                () -> frontRightModule.getModuleState().speedMetersPerSecond, null);
+
+        builder.addDoubleProperty("Back Left Angle",
+                () -> backLeftModule.getModuleState().angle.getRadians(), null);
+        builder.addDoubleProperty("Back Left Velocity",
+                () -> backLeftModule.getModuleState().speedMetersPerSecond, null);
+
+        builder.addDoubleProperty("Back Right Angle",
+                () -> backRightModule.getModuleState().angle.getRadians(), null);
+        builder.addDoubleProperty("Back Right Velocity",
+                () -> backRightModule.getModuleState().speedMetersPerSecond, null);
+
+        builder.addDoubleProperty("Robot Angle",
+                () -> getAngle().getRadians(), null);
     }
 }
