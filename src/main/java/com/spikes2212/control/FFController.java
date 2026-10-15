@@ -149,4 +149,20 @@ public class FeedForwardController {
     public double calculate(double source, double setpoint) {
         return calculate(source, setpoint, 0);
     }
+
+
+    @Override
+    public void close() {
+        SendableRegistry.remove(this);
+    }
+
+    @Override
+    public void initSendable(SendableBuilder builder) {
+        builder.setSmartDashboardType("FFController");
+        builder.addDoubleProperty("s", this::getkS, this::setkS);
+        builder.addDoubleProperty("v", this::getkV, this::setkV);
+        builder.addDoubleProperty("a", this::getkA, this::setkA);
+        builder.addDoubleProperty("g", this::getkG, this::setkG);
+        builder.addStringProperty("control mode", () -> this.getControlMode().name(), null);
+    }
 }
